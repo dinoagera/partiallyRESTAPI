@@ -81,4 +81,5 @@ func main() {
 	FoundForm(Square1)
 	FoundForm(Triangle1)
 	FoundForm(Circule1)
+	fmt.Println("Пошёл в жопу!")
 }
