@@ -21,7 +21,6 @@ func New(config *Config) *APIServer {
 		config: config,
 		logger: logrus.New(),
 		router: mux.NewRouter(),
-		// store: store.New(),
 	}
 }
 func (s *APIServer) Start() error {
