@@ -5,15 +5,17 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"restapi/internal/app/model"
 	"restapi/internal/app/store/teststore"
 	"testing"
 
+	"github.com/gorilla/sessions"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestServer_HandleUsersCreate(t *testing.T) {
-	s := newServer(teststore.New())
-	testCases := []struct {
+	s := newServer(teststore.New(), sessions.NewCookieStore([]byte("secret cookie")))
+	TestCases := []struct {
 		name         string
 		payload      interface{}
 		expectedCode int
@@ -31,8 +33,15 @@ func TestServer_HandleUsersCreate(t *testing.T) {
 			payload:      "invalid",
 			expectedCode: http.StatusBadRequest,
 		},
+		{
+			name: "invalid params",
+			payload: map[string]string{
+				"email": "invalid",
+			},
+			expectedCode: http.StatusUnprocessableEntity,
+		},
 	}
-	for _, tc := range testCases {
+	for _, tc := range TestCases {
 		t.Run(tc.name, func(t *testing.T) {
 			rec := httptest.NewRecorder()
 			b := &bytes.Buffer{}
@@ -42,9 +51,49 @@ func TestServer_HandleUsersCreate(t *testing.T) {
 			assert.Equal(t, tc.expectedCode, rec.Code)
 		})
 	}
-	// rec := httptest.NewRecorder()
-	// req, _ := http.NewRequest(http.MethodPost, "/users", nil)
-	// s := newServer(teststore.New())
-	// s.ServeHTTP(rec, req)
-	// assert.Equal(t, rec.Code, http.StatusOK)
+
+}
+func TestServer_HandleSessionsCreate(t *testing.T) {
+	store := teststore.New()
+	u := model.TestUser(t)
+	store.User().Create(u)
+	s := newServer(store, sessions.NewCookieStore([]byte("secret cookie")))
+	testCases := []struct {
+		name         string
+		payload      interface{}
+		expectedCode int
+	}{
+		{
+			name: "valid",
+			payload: map[string]interface{}{
+				"email":    u.Email,
+				"password": u.Password,
+			},
+			expectedCode: http.StatusOK,
+		},
+		{
+			name:         "invalid payload",
+			payload:      "invalid",
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name: "invalid email",
+			payload: map[string]interface{}{
+				"email":    "invalid",
+				"password": u.Password,
+			},
+			expectedCode: http.StatusUnauthorized,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			b := &bytes.Buffer{}
+			json.NewEncoder(b).Encode(tc.payload)
+			rec := httptest.NewRecorder()
+			req, _ := http.NewRequest(http.MethodPost, "/sessions", b)
+			s.ServeHTTP(rec, req)
+			assert.Equal(t, tc.expectedCode, rec.Code)
+		})
+	}
 }
